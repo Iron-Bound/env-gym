@@ -71,6 +71,7 @@ X_POS_ADDR = 0x03005008
 Y_POS_ADDR = 0x03005008 + 2
 MAP_N_ADDR = 0x03005008 + 5
 
+BADGE_ADDR = (0x4B0, 13)
 
 # addresses from https://datacrystal.romhacking.net/wiki/Pok%C3%A9mon_Red/Blue:RAM_map
 # https://github.com/pret/pokered/blob/91dc3c9f9c8fd529bb6e8307b58b96efa0bec67e/constants/event_constants.asm

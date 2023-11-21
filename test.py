@@ -1,22 +1,26 @@
 from pdb import set_trace as T
 import gymnasium
 
-from fireredgym import FireRed, FireRedV1
+from fireredgym import Emulator, FireRed, FireRedV1
 import time
 
 
 # TODO add video output
-def play_game(steps):
-    game = FireRed(headless=False)
-    game.reset()
+def play_game(rom_path, steps):
+    gba = Emulator.load(rom_path)
+    env = FireRed(gba, headless=True)
+    env.reset()
+    obs, reward, done, truncated, info = env.step(2)
+    print(obs.shape, reward, done, truncated, info)
 
-    # for _ in range(steps):
-    #     game.render()
-    #     game.step(game.action_space.sample())
+    for _ in range(steps):
+        env.render()
+        env.step(env.action_space.sample())
 
 
-def performance_test(game_cls, steps=10000):
-    game = game_cls()
+def performance_test(rom_path, env: FireRed, steps=10000):
+    gba = Emulator.load(rom_path)
+    game = FireRed(gba, headless=True)
     game.reset()
 
     for _ in range(1000):
@@ -32,5 +36,5 @@ def performance_test(game_cls, steps=10000):
 
 
 if __name__ == "__main__":
-    performance_test(FireRed, 100)
-    # performance_test(FireRedV1, 100)
+    # play_game("pokemon_firered.gba", 100)
+    performance_test("pokemon_firered.gba", 100)

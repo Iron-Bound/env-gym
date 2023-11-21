@@ -1,1 +1,2 @@
-from fireredgym.environment import FireRed, FireRedV1
+from .emulator import Emulator
+from .environment import FireRed, FireRedV1
