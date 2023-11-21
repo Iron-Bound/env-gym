@@ -6,16 +6,19 @@ import time
 
 
 # TODO add video output
-def play_game(rom_path, steps):
+def play_game(rom_path, steps=10000):
     gba = Emulator.load(rom_path)
-    env = FireRed(gba, headless=True)
-    env.reset()
-    obs, reward, done, truncated, info = env.step(2)
-    print(obs.shape, reward, done, truncated, info)
+    game = FireRed(gba, headless=False)
+    game.reset()
+
+    # obs, reward, done, truncated, info = env.step(2)
+    # print(obs.shape, reward, done, truncated, info)
 
     for _ in range(steps):
-        env.render()
-        env.step(env.action_space.sample())
+        game.render()
+        game.gba.core.run_frame()
+        game.step(game.action_space.sample())
+        # T()
 
 
 def performance_test(rom_path, env: FireRed, steps=10000):
@@ -36,5 +39,5 @@ def performance_test(rom_path, env: FireRed, steps=10000):
 
 
 if __name__ == "__main__":
-    # play_game("pokemon_firered.gba", 100)
-    performance_test("pokemon_firered.gba", 100)
+    play_game("pokemon_firered.gba")
+    # performance_test("pokemon_firered.gba", 100)

@@ -1,5 +1,6 @@
 from pdb import set_trace as T
 from typing import Literal
+import sys
 
 import gymnasium as gym
 import numpy as np
@@ -8,9 +9,22 @@ import mgba.image
 
 from .emulator import Emulator, ACTIONS
 
+try:
+    import pygame
+    from pygame import gfxdraw
+except ImportError as e:
+    pass
+
+
+def _pil_image_to_pygame(img):
+    return pygame.image.fromstring(img.tobytes(), img.size, img.mode).convert()
+
 
 class FireRed(gym.Env):
-    metadata = {"render_modes": ["rbg_array"]}
+    metadata = {
+        "render_modes": ["human", "rbg_array"],
+        "render_fps": 60,
+    }
 
     def __init__(
         self,
@@ -35,7 +49,12 @@ class FireRed(gym.Env):
         self.action_space = gym.spaces.Discrete(len(ACTIONS))
         self.initial_state = self.gba.open_state_file(state_path)
 
+        self.obs_type = obs_type
         self.headless = headless
+        self.frameskip = 0
+        self._screen = None
+        self._clock = None
+
         self._kwargs = kwargs
         self.reset()
 
@@ -46,18 +65,57 @@ class FireRed(gym.Env):
         self.gba.load_state(self.initial_state)
         return self.observation_space, {}
 
-    def _get_observatio(self):
-        return np.array(
-            self._framebuffer.to_pil().convert("RGB"), dtype=np.uint8, copy=False
-        )
+    def _get_observation(self):
+        img = self._framebuffer.to_pil().convert("RGB")
+        if self.obs_type == "grayscale":
+            img = img.convert("L")
+        return np.array(img).transpose(1, 0, 2)
+        # return np.array(
+        #     self._framebuffer.to_pil().convert("RGB"), dtype=np.uint8, copy=False
+        # )
 
     def render(self):
-        return self._get_observatio()
-        # return np.array(self.screen.to_pil(), dtype=np.uint8, copy=False)
+        img = self._framebuffer.to_pil().convert("RGB")
+        if self.obs_type == "grayscale":
+            img = img.convert("L")
+
+        if self.headless == False:
+            if "pygame" not in sys.modules:
+                raise RuntimeError(
+                    "pygame is not installed, run `pip install pygame`"
+                ) from e
+
+            if self._screen is None:
+                pygame.init()
+                pygame.display.init()
+                self._screen = pygame.display.set_mode(
+                    self.gba.core.desired_video_dimensions()
+                )
+            if self._clock is None:
+                self._clock = pygame.time.Clock()
+
+            surf = _pil_image_to_pygame(img)
+            self._screen.fill((0, 0, 0))
+            self._screen.blit(surf, (0, 0))
+
+            effective_fps = self.metadata["render_fps"]
+            if self.frameskip:
+                if isinstance(self.frameskip, tuple):
+                    # average FPS is close enough
+                    effective_fps /= (self.frameskip[0] + self.frameskip[1]) / 2 + 1
+                else:
+                    effective_fps /= self.frameskip + 1
+
+            pygame.event.pump()
+            self._clock.tick(effective_fps)
+            pygame.display.flip()
+        else:  # self.render_mode == "rgb_array"
+            return np.array(img)
 
     def step(self, action):
-        self.gba.run_action_on_emulator(ACTIONS[action])
-        return self.render(), 0, False, False, {}
+        self.gba.run_action_on_emulator(action, self.frameskip)
+        ob = self._get_observation()
+        return ob, 0, False, False, {}
 
     def close(self):
         pass
@@ -79,6 +137,7 @@ class FireRedV1(FireRed):
         """Resets the game. Seeding is NOT supported"""
         self.gba.reset()
         load_state(self.gba, self.initial_state)
+        info = {}
 
         self.time = 0
         self.max_episode_steps = max_episode_steps
@@ -97,7 +156,8 @@ class FireRedV1(FireRed):
         self.last_party_size = 1
         self.last_reward = None
 
-        return self.render(), {}
+        ob = self._get_observation()
+        return ob, info
 
     def step(self, action):
         self.run_action_on_emulator(ACTIONS[action])
@@ -122,6 +182,8 @@ class FireRedV1(FireRed):
         # events = ram_map.events(self.gba)
         # self.max_events = max(self.max_events, events)
         # event_reward = self.max_events
+
+        ob = self._get_observation()
 
         info = {}
         done = self.time >= self.max_episode_steps
@@ -149,4 +211,4 @@ class FireRedV1(FireRed):
         #         'exploration_map': self.counts_map,
         #     }
 
-        return self.render(), reward, done, done, info
+        return ob, reward, done, done, info
