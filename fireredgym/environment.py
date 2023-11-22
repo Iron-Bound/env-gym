@@ -51,6 +51,7 @@ class FireRed(gym.Env):
 
         self.obs_type = obs_type
         self.headless = headless
+        self.render_mode = "rgb_array"
         self.frameskip = 0
         self._screen = None
         self._clock = None
@@ -75,6 +76,13 @@ class FireRed(gym.Env):
         # )
 
     def render(self):
+        if self.render_mode is None:
+            gym.logger.warn(
+                "You are calling render method without specifying any render mode. "
+                "You can specify the render_mode at initialization."
+            )
+            return
+
         img = self._framebuffer.to_pil().convert("RGB")
         if self.obs_type == "grayscale":
             img = img.convert("L")
@@ -88,9 +96,7 @@ class FireRed(gym.Env):
             if self._screen is None:
                 pygame.init()
                 pygame.display.init()
-                self._screen = pygame.display.set_mode(
-                    self.gba.core.desired_video_dimensions()
-                )
+                self._screen = pygame.display.set_mode((240, 160))
             if self._clock is None:
                 self._clock = pygame.time.Clock()
 
@@ -155,19 +161,18 @@ class FireRedV1(FireRed):
         self.last_party_size = 1
         self.last_reward = None
 
-        ob = self._get_observation()
-        return ob, info
+        return self.render(), info
 
     def step(self, action):
         self.gba.run_action_on_emulator(action)
         self.time += 1
 
         # Exploration reward
-        x, y, map_n = ram_map.position(self.gba)
-        self.seen_coords.add((x, y, map_n))
+        r, c, map_n = ram_map.position(self.gba)
+        self.seen_coords.add((r, c, map_n))
         self.seen_maps.add(map_n)
         exploration_reward = 0.01 * len(self.seen_coords)
-        # glob_x, glob_y = game_map.local_to_global(x, y, map_n)
+        # glob_x, glob_y = game_map.local_to_global(r, c, map_n)
         # try:
         #     self.counts_map[glob_y, glob_x] += 1
         # except:
@@ -193,43 +198,66 @@ class FireRedV1(FireRed):
         healing_reward = self.total_healing
         death_reward = 0.05 * self.death_count
 
-        # # Badge reward
-        # badges = ram_map.badges(self.gba)
-        # badges_reward = 5 * badges
+        # Opponent level reward
+        max_opponent_level = max(ram_map.opponent(self.gba))
+        self.max_opponent_level = max(self.max_opponent_level, max_opponent_level)
+        opponent_level_reward = 0.2 * self.max_opponent_level
 
-        # # Event reward
-        # events = ram_map.events(self.gba)
-        # self.max_events = max(self.max_events, events)
-        # event_reward = self.max_events
-        money = ram_map.money(self.gba)
+        # Badge reward
+        badges = ram_map.badges(self.gba)
+        badges_reward = 5 * badges
 
-        reward = 0
-        ob = self._get_observation()
+        # Event reward
+        events = ram_map.events(self.gba)
+        self.max_events = max(self.max_events, events)
+        event_reward = self.max_events
 
-        info = {level_reward, exploration_reward}
+        # money = ram_map.money(self.gba)
+
+        reward = self.reward_scale * (
+            event_reward
+            + level_reward
+            + opponent_level_reward
+            + death_reward
+            + badges_reward
+            + healing_reward
+            + exploration_reward
+        )
+
+        # Subtract previous reward
+        # TODO: Don't record large cumulative rewards in the first place
+        if self.last_reward is None:
+            reward = 0
+            self.last_reward = 0
+        else:
+            nxt_reward = reward
+            reward -= self.last_reward
+            self.last_reward = nxt_reward
+
+        info = {exploration_reward}
         done = self.time >= self.max_episode_steps
-        # if done:
-        #     info = {
-        #         'reward': {
-        #             'delta': reward,
-        #             'event': event_reward,
-        #             'level': level_reward,
-        #             'opponent_level': opponent_level_reward,
-        #             'death': death_reward,
-        #             'badges': badges_reward,
-        #             'healing': healing_reward,
-        #             'exploration': exploration_reward,
-        #         },
-        #         'maps_explored': len(self.seen_maps),
-        #         'party_size': party_size,
-        #         'highest_pokemon_level': max(party_levels),
-        #         'total_party_level': sum(party_levels),
-        #         'deaths': self.death_count,
-        #         'badge_1': float(badges == 1),
-        #         'badge_2': float(badges > 1),
-        #         'event': events,
-        #         'money': money,
-        #         'exploration_map': self.counts_map,
-        #     }
+        if done:
+            info = {
+                "reward": {
+                    "delta": reward,
+                    "event": event_reward,
+                    "level": level_reward,
+                    "opponent_level": opponent_level_reward,
+                    "death": death_reward,
+                    "badges": badges_reward,
+                    "healing": healing_reward,
+                    "exploration": exploration_reward,
+                },
+                #         'maps_explored': len(self.seen_maps),
+                #         'party_size': party_size,
+                #         'highest_pokemon_level': max(party_levels),
+                #         'total_party_level': sum(party_levels),
+                #         'deaths': self.death_count,
+                #         'badge_1': float(badges == 1),
+                #         'badge_2': float(badges > 1),
+                #         'event': events,
+                #         'money': money,
+                #         'exploration_map': self.counts_map,
+            }
 
-        return ob, reward, done, done, info
+        return self.render(), reward, done, done, info

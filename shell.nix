@@ -7,6 +7,7 @@ pkgs.mkShell {
     virtualenv
     numpy
     pyglet
+    pygame
     cffi
     opencv4
     python-lsp-server

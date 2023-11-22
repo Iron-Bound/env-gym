@@ -1,4 +1,8 @@
 # https://sourcegraph.com/github.com/pret/pokefirered/-/blob/include/constants/flags.h?L1320:57-1320:75
+SAVE_BANK1_PTR = 0x03005D8C
+SAVE_BANK2_PTR = 0x03005D90
+EVENT_OBJECT_ADDR = 0x02036E38
+SYS_FLAGS = 0x800
 
 # Battle pokemon base address
 ENEMY_1 = 0x0202402C
@@ -74,48 +78,22 @@ OPPENENT_LEVEL_ADDR = [
     (ENEMY_6 + LEVEL_OFFSET),
 ]
 ENEMY_COUNT_ADDR = 0x0803F5B4
-SEEN_POKE_ADDR = 0x080CBDCC
-Y_POS_ADDR = 0x03005068
-X_POS_ADDR = 0x0300506C
-MAP_N_ADDR = 0x03005010
+SEEN_POKE_ADDR = 0x08251FEE
+X_POS_ADDR = 0x10
+Y_POS_ADDR = 0x12
+MAP_N_ADDR = 0x09
 
 BADGE_ADDR = (0x4B0, 13)
 
 TRAINER_FLAG_START_ADDR = 0x4FF
-TRAINER_FLAG_ENV_ADDR = 0x7FF
+TRAINER_FLAG_END_ADDR = 0x7FF
 
 EVENT_FLAGS_START_ADDR = 0xD747
 EVENT_FLAGS_END_ADDR = 0xD761
 
 MONEY = 0x0290
 XOR_KEY = 0xF20
-# addresses from https://datacrystal.romhacking.net/wiki/Pok%C3%A9mon_Red/Blue:RAM_map
-# https://github.com/pret/pokered/blob/91dc3c9f9c8fd529bb6e8307b58b96efa0bec67e/constants/event_constants.asm
-# HP_ADDR = [0xD16C, 0xD198, 0xD1C4, 0xD1F0, 0xD21C, 0xD248]
-# MAX_HP_ADDR = [0xD18D, 0xD1B9, 0xD1E5, 0xD211, 0xD23D, 0xD269]
-# PARTY_SIZE_ADDR = 0xD163
-# PARTY_ADDR = [0xD164, 0xD165, 0xD166, 0xD167, 0xD168, 0xD169]
-# PARTY_LEVEL_ADDR = [0xD18C, 0xD1B8, 0xD1E4, 0xD210, 0xD23C, 0xD268]
-# POKE_XP_ADDR = [0xD179, 0xD1A5, 0xD1D1, 0xD1FD, 0xD229, 0xD255]
-# CAUGHT_POKE_ADDR = range(0xD2F7, 0xD309)
-# SEEN_POKE_ADDR = range(0xD30A, 0xD31D)
-# OPPONENT_LEVEL_ADDR = [0xD8C5, 0xD8F1, 0xD91D, 0xD949, 0xD975, 0xD9A1]
-# X_POS_ADDR = 0xD362
-# Y_POS_ADDR = 0xD361
-# MAP_N_ADDR = 0xD35E
-
-BADGE_1_ADDR = 0x4B0
-OAK_PARCEL_ADDR = 0xD74E
-OAK_POKEDEX_ADDR = 0xD74B
-OPPONENT_LEVEL = 0xCFF3
-# ENEMY_POKE_COUNT = 0xD89C
-# EVENT_FLAGS_START_ADDR = 0xD747
-# EVENT_FLAGS_END_ADDR = 0xD761
-MUSEUM_TICKET_ADDR = 0xD754
-MONEY_ADDR_1 = 0xD347
-MONEY_ADDR_100 = 0xD348
-MONEY_ADDR_10000 = 0xD349
-
+BADGE_1_ADDR = 0x20
 
 # def bcd(num):
 # return 10 * ((num >> 4) & 0x0F) + (num & 0x0F)
@@ -125,34 +103,28 @@ def bit_count(bits):
     return bin(bits).count("1")
 
 
-def read_bit(game, addr, bit) -> bool:
-    # add padding so zero will read '0b100000000' instead of '0b0'
-    return bin(256 + game.get_memory_value(addr))[-bit - 1] == "1"
-
-
-# def read_uint16(game, start_addr):
-#     """Read 2 bytes"""
-#     val_256 = game.get_memory_value(start_addr)
-#     val_1 = game.get_memory_value(start_addr + 1)
-#     return 256 * val_256 + val_1
+# def read_bit(game, addr, bit) -> bool:
+#     # add padding so zero will read '0b100000000' instead of '0b0'
+#     return bin(256 + game.read_memory(addr))[-bit - 1] == "1"
 
 
 def position(game):
-    x_pos = game.read_u8(X_POS_ADDR)
-    y_pos = game.read_u8(Y_POS_ADDR)
-    map_n = game.read_u8(MAP_N_ADDR)
+    # save1_ptr = game.read_u32(SAVE_BANK1_PTRTR)
+    x_pos = game.read_s16(EVENT_OBJECT_ADDR + X_POS_ADDR)
+    y_pos = game.read_s16(EVENT_OBJECT_ADDR + Y_POS_ADDR)
+    map_n = game.read_u8(EVENT_OBJECT_ADDR + MAP_N_ADDR)
     return x_pos, y_pos, map_n
 
 
 def party(game):
-    # party = [game.read_memory(addr, 100) for addr in PARTY_ADDR]
+    # party = [game.read_memory(addr) for addr in PARTY_ADDR]
     party_size = game.read_u8(PARTY_SIZE_ADDR)
     party_levels = [game.read_u8(addr) for addr in PARTY_LEVEL_ADDR]
     return party_size, party_levels
 
 
-# def opponent(game):
-#     return [game.get_memory_value(addr) for addr in OPPONENT_LEVEL_ADDR]
+def opponent(game):
+    return [game.read_u8(addr) for addr in OPPENENT_LEVEL_ADDR]
 
 
 # def oak_parcel(game):
@@ -164,7 +136,7 @@ def party(game):
 
 
 def pokemon_seen(game):
-    seen_bytes = [game.get_memory_value(addr) for addr in SEEN_POKE_ADDR]
+    seen_bytes = game.read_memory(SEEN_POKE_ADDR, 336)
     return sum([bit_count(b) for b in seen_bytes])
 
 
@@ -185,28 +157,34 @@ def hp_fraction(game):
     return sum(party_hp) / sum_max_hp
 
 
+def xor_bytes(abytes, bbytes):
+    return bytes([a ^ b for a, b in zip(abytes, bbytes)])
+
+
 def money(game):
-    money = game.read_u16(MONEY)
-    if money is None:
-        return 0
-    xorKey = game.read_u16(XOR_KEY)
-    if xorKey is None:
-        return 0
-    return money ^ xorKey
+    save1_block_addr = game.read_u32(SAVE_BANK1_PTR)
+    money = game.read_memory(save1_block_addr + MONEY, 4)
+    xorKey = game.read_memory(save1_block_addr + XOR_KEY, 4)
+    # if money is cone | xorKey is None:
+    #     return 0
+    result = xor_bytes(money, xorKey)
+    return int.from_bytes(result, byteorder="little")
 
 
 def badges(game):
-    badges = game.read_u8(BADGE_1_ADDR)
-    return bit_count(badges)
+    return 0
+    # badges = game.read_memory(BADGE_1_ADDR, 1)
+    # return bit_count(badges)
 
 
-# def events(game):
-#     """Adds up all event flags, exclude museum ticket"""
-#     num_events = sum(
-#         bit_count(game.get_memory_value(i))
-#         for i in range(EVENT_FLAGS_START_ADDR, EVENT_FLAGS_END_ADDR)
-#     )
-#     museum_ticket = int(read_bit(game, MUSEUM_TICKET_ADDR, 0))
+def events(game):
+    return 0
+    # """Adds up all event flags, exclude museum ticket"""
+    # num_events = sum(
+    #     bit_count(game.get_memory_value(i))
+    #     for i in range(EVENT_FLAGS_START_ADDR, EVENT_FLAGS_END_ADDR)
+    # )
+    # museum_ticket = int(read_bit(game, MUSEUM_TICKET_ADDR, 0))
 
-#     # Omit 13 events by default
-#     return max(num_events - 13 - museum_ticket, 0)
+    # # Omit 13 events by default
+    # return max(num_events - 13 - museum_ticket, 0)

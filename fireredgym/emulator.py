@@ -55,7 +55,7 @@ class Emulator:
     # def set_inputs(self, input: int):
     #     self.core._core.setKeys(self.core._core, ACTIONS[input])
 
-    def run_action_on_emulator(self, action, frame_skip=3):
+    def run_action_on_emulator(self, action, frame_skip=6):
         key = ACTIONS[action]
         self.core.set_keys(key)
 
@@ -63,7 +63,7 @@ class Emulator:
             self.core.run_frame()
             if i == 2:
                 self.core.clear_keys(key)
-        self._invalidate_mem_cache
+        self._invalidate_mem_cache()
 
     def _invalidate_mem_cache(self):
         self._mem_cache = {}
@@ -84,6 +84,21 @@ class Emulator:
         mask = len(mem_region) - 1
         address &= mask
         return mem_region[address : address + size]
+
+    def read_s8(self, address: int):
+        return int.from_bytes(
+            self.read_memory(address, 1), byteorder="little", signed=True
+        )
+
+    def read_s16(self, address: int):
+        return int.from_bytes(
+            self.read_memory(address, 2), byteorder="little", signed=True
+        )
+
+    def read_s32(self, address: int):
+        return int.from_bytes(
+            self.read_memory(address, 4), byteorder="little", signed=True
+        )
 
     def read_u8(self, address: int):
         return int.from_bytes(
