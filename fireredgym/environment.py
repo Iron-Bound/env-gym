@@ -7,7 +7,8 @@ import numpy as np
 import mgba.core
 import mgba.image
 
-from .emulator import Emulator, ACTIONS
+from fireredgym.emulator import Emulator, ACTIONS
+from fireredgym import ram_map
 
 try:
     import pygame
@@ -32,13 +33,12 @@ class FireRed(gym.Env):
         state_path=__file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
         headless=True,
-        **kwargs,
     ):
         self.gba = core
 
         screen_size = self.gba.core.desired_video_dimensions()
-        # if obs_type == "rgb":
-        #     screen_size += (3,)
+        if obs_type == "rgb":
+            screen_size += (3,)
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=screen_size, dtype=np.uint8
         )
@@ -55,7 +55,7 @@ class FireRed(gym.Env):
         self._screen = None
         self._clock = None
 
-        self._kwargs = kwargs
+        # self._kwargs = kwargs
         self.reset()
 
     def reset(self, seed=None, options=None):
@@ -128,15 +128,14 @@ class FireRedV1(FireRed):
         state_path=__file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
         headless=True,
-        **kwargs,
     ):
-        super().__init__(core, state_path, obs_type, headless, kwargs)
+        super().__init__(core, state_path, obs_type, headless)
         self.counts_map = np.zeros((375, 500))
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
-        self.gba.reset()
-        load_state(self.gba, self.initial_state)
+        self.gba.core.reset()
+        self.gba.load_state(self.initial_state)
         info = {}
 
         self.time = 0
@@ -160,19 +159,39 @@ class FireRedV1(FireRed):
         return ob, info
 
     def step(self, action):
-        self.run_action_on_emulator(ACTIONS[action])
+        self.gba.run_action_on_emulator(action)
         self.time += 1
 
-        # # Exploration reward
-        # x, y, map_n = ram_map.position(self.gba)
-        # self.seen_coords.add((x, y, map_n))
-        # self.seen_maps.add(map_n)
-        # exploration_reward = 0.01 * len(self.seen_coords)
+        # Exploration reward
+        x, y, map_n = ram_map.position(self.gba)
+        self.seen_coords.add((x, y, map_n))
+        self.seen_maps.add(map_n)
+        exploration_reward = 0.01 * len(self.seen_coords)
         # glob_x, glob_y = game_map.local_to_global(x, y, map_n)
         # try:
         #     self.counts_map[glob_y, glob_x] += 1
         # except:
         #     pass
+
+        # Level reward
+        party_size, party_levels = ram_map.party(self.gba)
+        self.max_level_sum = max(self.max_level_sum, sum(party_levels))
+        if self.max_level_sum < 30:
+            level_reward = 4 * self.max_level_sum
+        else:
+            level_reward = 30 + (self.max_level_sum - 30) / 4
+
+        # Healing and death rewards
+        hp_fraction = ram_map.hp_fraction(self.gba)
+        fraction_increased = hp_fraction > self.last_hp_fraction
+        party_size_constant = party_size == self.last_party_size
+        if fraction_increased and party_size_constant:
+            if self.last_hp_fraction > 0:
+                self.total_healing += hp_fraction - self.last_hp_fraction
+            else:
+                self.death_count += 1
+        healing_reward = self.total_healing
+        death_reward = 0.05 * self.death_count
 
         # # Badge reward
         # badges = ram_map.badges(self.gba)
@@ -182,10 +201,12 @@ class FireRedV1(FireRed):
         # events = ram_map.events(self.gba)
         # self.max_events = max(self.max_events, events)
         # event_reward = self.max_events
+        money = ram_map.money(self.gba)
 
+        reward = 0
         ob = self._get_observation()
 
-        info = {}
+        info = {level_reward, exploration_reward}
         done = self.time >= self.max_episode_steps
         # if done:
         #     info = {

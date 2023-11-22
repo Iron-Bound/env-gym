@@ -8,7 +8,7 @@ import time
 # TODO add video output
 def play_game(rom_path, steps=10000):
     gba = Emulator.load(rom_path)
-    game = FireRed(gba, headless=False)
+    game = FireRedV1(gba, headless=False)
     game.reset()
 
     # obs, reward, done, truncated, info = env.step(2)
@@ -17,8 +17,8 @@ def play_game(rom_path, steps=10000):
     for _ in range(steps):
         game.render()
         game.gba.core.run_frame()
-        game.step(game.action_space.sample())
-        # T()
+        obs, reward, done, truncated, info = game.step(game.action_space.sample())
+        print(info)
 
 
 def performance_test(rom_path, env: FireRed, steps=10000):
