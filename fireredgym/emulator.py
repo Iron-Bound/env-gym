@@ -30,7 +30,7 @@ class Emulator:
 
     def __init__(self, core: mgba.core.Core):
         self.core = core
-        self.core.add_frame_callback(self._invalidate_mem_cache)
+        # self.core.add_frame_callback(self._invalidate_mem_cache())
         self._mem_cache = {}
 
     def open_state_file(self, path) -> bytes:
@@ -55,7 +55,7 @@ class Emulator:
     # def set_inputs(self, input: int):
     #     self.core._core.setKeys(self.core._core, ACTIONS[input])
 
-    def run_action_on_emulator(self, action, frame_skip=8):
+    def run_action_on_emulator(self, action, frame_skip=3):
         key = ACTIONS[action]
         self.core.set_keys(key)
 
@@ -63,6 +63,7 @@ class Emulator:
             self.core.run_frame()
             if i == 2:
                 self.core.clear_keys(key)
+        self._invalidate_mem_cache
 
     def _invalidate_mem_cache(self):
         self._mem_cache = {}
