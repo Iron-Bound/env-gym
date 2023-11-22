@@ -1,5 +1,5 @@
-from .emulator import Emulator
-from .environment import FireRed, FireRedV1
+from fireredgym.emulator import Emulator
+from fireredgym.environment import FireRed, FireRedV1
 
 from gymnasium.envs.registration import register
 
