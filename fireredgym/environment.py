@@ -36,13 +36,15 @@ class FireRed(gym.Env):
     ):
         self.gba = core
 
-        screen_size = self.gba.core.desired_video_dimensions()
-        if obs_type == "rgb":
-            screen_size += (3,)
+        # screen_size = self.gba.core.desired_video_dimensions()
+        # if obs_type == "rgb":
+        #     screen_size += (3,)
+
+        screen_size = (120, 80, 3)
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=screen_size, dtype=np.uint8
         )
-
+        
         self._framebuffer = mgba.image.Image(*self.gba.core.desired_video_dimensions())
         self.gba.core.set_video_buffer(self._framebuffer)
 
@@ -61,19 +63,19 @@ class FireRed(gym.Env):
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
-        # super().reset(seed=seed)
+        super().reset(seed=seed)
+        
         self.gba.core.reset()
         self.gba.load_state(self.initial_state)
-        return self.observation_space, {}
+        self.gba.core.run_frame()
+        ob = self._get_observation()[::2,::2]
+        return ob, {}
 
     def _get_observation(self):
         img = self._framebuffer.to_pil().convert("RGB")
-        if self.obs_type == "grayscale":
-            img = img.convert("L")
+        # if self.obs_type == "grayscale":
+        #     img = img.convert("L")
         return np.array(img).transpose(1, 0, 2)
-        # return np.array(
-        #     self._framebuffer.to_pil().convert("RGB"), dtype=np.uint8, copy=False
-        # )
 
     def render(self):
         if self.render_mode is None:
@@ -120,7 +122,7 @@ class FireRed(gym.Env):
 
     def step(self, action):
         self.gba.run_action_on_emulator(action, self.frameskip)
-        ob = self._get_observation()
+        ob = self._get_observation()[::2,::2]        
         return ob, 0, False, False, {}
 
     def close(self):
@@ -161,7 +163,8 @@ class FireRedV1(FireRed):
         self.last_party_size = 1
         self.last_reward = None
 
-        return self.render(), info
+        ob = self._get_observation()[::2,::2]
+        return ob, info
 
     def step(self, action):
         self.gba.run_action_on_emulator(action)
@@ -212,7 +215,7 @@ class FireRedV1(FireRed):
         self.max_events = max(self.max_events, events)
         event_reward = self.max_events
 
-        # money = ram_map.money(self.gba)
+        money = 0 # ram_map.money(self.gba)
 
         reward = self.reward_scale * (
             event_reward
@@ -234,6 +237,7 @@ class FireRedV1(FireRed):
             reward -= self.last_reward
             self.last_reward = nxt_reward
 
+        ob = self._get_observation()[::2,::2]
         info = {exploration_reward}
         done = self.time >= self.max_episode_steps
         if done:
@@ -248,16 +252,16 @@ class FireRedV1(FireRed):
                     "healing": healing_reward,
                     "exploration": exploration_reward,
                 },
-                #         'maps_explored': len(self.seen_maps),
-                #         'party_size': party_size,
-                #         'highest_pokemon_level': max(party_levels),
-                #         'total_party_level': sum(party_levels),
-                #         'deaths': self.death_count,
+                        'maps_explored': len(self.seen_maps),
+                        'party_size': party_size,
+                        'highest_pokemon_level': max(party_levels),
+                        'total_party_level': sum(party_levels),
+                        'deaths': self.death_count,
                 #         'badge_1': float(badges == 1),
                 #         'badge_2': float(badges > 1),
                 #         'event': events,
                 #         'money': money,
-                #         'exploration_map': self.counts_map,
+                        'exploration_map': self.counts_map,
             }
 
-        return self.render(), reward, done, done, info
+        return ob, reward, done, done, info

@@ -10,12 +10,11 @@ from mgba.gba import GBA
 from mgba import ffi, lib
 
 ACTIONS = (GBA.KEY_DOWN, GBA.KEY_LEFT, GBA.KEY_RIGHT, GBA.KEY_UP, GBA.KEY_A, GBA.KEY_B)
-# ACTIONS = (0x80, 0x20, 0x10, 0x40, 0x1, 0x2)
 
 
 class Emulator:
     @staticmethod
-    def load(rom_path: str, quiet=True) -> "Emulator":
+    def load(rom_path: str, quiet: bool = True) -> "Emulator":
         if quiet:
             mgba.log.silence()
 
@@ -30,7 +29,6 @@ class Emulator:
 
     def __init__(self, core: mgba.core.Core):
         self.core = core
-        # self.core.add_frame_callback(self._invalidate_mem_cache())
         self._mem_cache = {}
 
     def open_state_file(self, path) -> bytes:
@@ -52,10 +50,7 @@ class Emulator:
         vfile.seek(0, whence=0)
         self.core.load_state(vfile)
 
-    # def set_inputs(self, input: int):
-    #     self.core._core.setKeys(self.core._core, ACTIONS[input])
-
-    def run_action_on_emulator(self, action, frame_skip=6):
+    def run_action_on_emulator(self, action, frame_skip=8):
         key = ACTIONS[action]
         self.core.set_keys(key)
 
