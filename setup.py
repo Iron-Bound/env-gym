@@ -2,9 +2,9 @@ from setuptools import setup
 
 setup(
     name="env-gym",
-    version=open('fireredgym/version.py').read().split()[-1].strip("'"),,
+    version=open('fireredgym/version.py').read().split()[-1].strip("'"),
     install_requires=[
-        "gymnasium=>0.29", 
+        "gymnasium>=0.29", 
         "numpy", 
         "pygame==2.1.0",
     ],

@@ -21,7 +21,7 @@ def _pil_image_to_pygame(img):
     return pygame.image.fromstring(img.tobytes(), img.size, img.mode).convert()
 
 
-class FireRed(gym.Env):
+class FireRed:
     metadata = {
         "render_modes": ["human", "rbg_array"],
         "render_fps": 60,
@@ -32,6 +32,7 @@ class FireRed(gym.Env):
         core: Emulator,
         state_path=__file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
+        render_mode="rgb_array",
         headless=True,
     ):
         self.gba = core
@@ -53,7 +54,7 @@ class FireRed(gym.Env):
 
         self.obs_type = obs_type
         self.headless = headless
-        self.render_mode = "rgb_array"
+        self.render_mode = render_mode
         self.frameskip = 0
         self._screen = None
         self._clock = None
@@ -63,7 +64,7 @@ class FireRed(gym.Env):
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
-        super().reset(seed=seed)
+        # super().reset(seed=seed)
         
         self.gba.core.reset()
         self.gba.load_state(self.initial_state)
@@ -135,9 +136,10 @@ class FireRedV1(FireRed):
         core: Emulator,
         state_path=__file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
+        render_mode=None,
         headless=True,
     ):
-        super().__init__(core, state_path, obs_type, headless)
+        super().__init__(core, state_path, obs_type, render_mode, headless)
         self.counts_map = np.zeros((375, 500))
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
