@@ -21,7 +21,7 @@ def _pil_image_to_pygame(img):
     return pygame.image.fromstring(img.tobytes(), img.size, img.mode).convert()
 
 
-class FireRed:
+class FireRed(gym.Env):
     metadata = {
         "render_modes": ["human", "rbg_array"],
         "render_fps": 60,
