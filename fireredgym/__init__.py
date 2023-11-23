@@ -9,4 +9,4 @@ __all__ = [
     "Emulator",
 ]
 
-register(id="FireRed-V1", entry_point="emulator:FireRedV1")
+register(id="FireRed-V1", entry_point="fireredgym:FireRedV1")

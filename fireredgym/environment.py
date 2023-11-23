@@ -33,15 +33,14 @@ class FireRed(gym.Env):
         state_path=__file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
         render_mode="rgb_array",
-        headless=True,
     ):
         self.gba = core
 
         # screen_size = self.gba.core.desired_video_dimensions()
-        # if obs_type == "rgb":
-        #     screen_size += (3,)
+        screen_size = (80, 120) # 240x160 (H, W, C)
+        if obs_type == "rgb":
+            screen_size += (3,)
 
-        screen_size = (120, 80, 3)
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=screen_size, dtype=np.uint8
         )
@@ -53,13 +52,11 @@ class FireRed(gym.Env):
         self.initial_state = self.gba.open_state_file(state_path)
 
         self.obs_type = obs_type
-        self.headless = headless
         self.render_mode = render_mode
         self.frameskip = 0
         self._screen = None
         self._clock = None
 
-        # self._kwargs = kwargs
         self.reset()
 
     def reset(self, seed=None, options=None):
@@ -70,13 +67,14 @@ class FireRed(gym.Env):
         self.gba.load_state(self.initial_state)
         self.gba.core.run_frame()
         ob = self._get_observation()[::2,::2]
-        return ob, {}
+        info = {}
+        return ob, info
 
     def _get_observation(self):
         img = self._framebuffer.to_pil().convert("RGB")
-        # if self.obs_type == "grayscale":
-        #     img = img.convert("L")
-        return np.array(img).transpose(1, 0, 2)
+        if self.obs_type == "grayscale":
+            img = img.convert("L")
+        return np.array(img) #.transpose(1, 0, 2)
 
     def render(self):
         if self.render_mode is None:
@@ -90,7 +88,7 @@ class FireRed(gym.Env):
         if self.obs_type == "grayscale":
             img = img.convert("L")
 
-        if self.headless == False:
+        if self.render_mode == "human":
             if "pygame" not in sys.modules:
                 raise RuntimeError(
                     "pygame is not installed, run `pip install pygame`"
@@ -124,7 +122,8 @@ class FireRed(gym.Env):
     def step(self, action):
         self.gba.run_action_on_emulator(action, self.frameskip)
         ob = self._get_observation()[::2,::2]        
-        return ob, 0, False, False, {}
+        info = {}
+        return ob, 0, False, False, info
 
     def close(self):
         pass
@@ -136,11 +135,12 @@ class FireRedV1(FireRed):
         core: Emulator,
         state_path=__file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
-        render_mode=None,
-        headless=True,
+        render_mode = "rgb_array",
+        **kwargs,
     ):
-        super().__init__(core, state_path, obs_type, render_mode, headless)
+        super().__init__(core, state_path, obs_type, render_mode)
         self.counts_map = np.zeros((375, 500))
+        self._kwargs = kwargs
 
     def reset(self, seed=None, options=None, max_episode_steps=20480, reward_scale=4.0):
         """Resets the game. Seeding is NOT supported"""
@@ -240,7 +240,7 @@ class FireRedV1(FireRed):
             self.last_reward = nxt_reward
 
         ob = self._get_observation()[::2,::2]
-        info = {exploration_reward}
+        info = {}
         done = self.time >= self.max_episode_steps
         if done:
             info = {

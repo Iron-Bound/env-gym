@@ -50,7 +50,7 @@ class Emulator:
         vfile.seek(0, whence=0)
         self.core.load_state(vfile)
 
-    def run_action_on_emulator(self, action, frame_skip=8):
+    def run_action_on_emulator(self, action, frame_skip=5):
         key = ACTIONS[action]
         self.core.set_keys(key)
 
