@@ -30,17 +30,20 @@ class FireRed(gym.Env):
     def __init__(
         self,
         core: Emulator,
-        state_path=__file__.rstrip("environment.py") + "squirtle.state",
+        state_path: str = __file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
-        render_mode="rgb_array",
+        render_mode: Literal["human", "rgb_array"] = "rgb_array",
     ):
         self.gba = core
 
-        # screen_size = self.gba.core.desired_video_dimensions()
-        screen_size = (80, 120) # 240x160 (H, W, C)
+        self.obs_type = obs_type
+        self.render_mode = render_mode
+        self.frameskip = 0
+        
+        screen_size = self.gba.core.desired_video_dimensions()
+        # 240x160 to (W, H)
         if obs_type == "rgb":
             screen_size += (3,)
-
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=screen_size, dtype=np.uint8
         )
@@ -51,9 +54,6 @@ class FireRed(gym.Env):
         self.action_space = gym.spaces.Discrete(len(ACTIONS))
         self.initial_state = self.gba.open_state_file(state_path)
 
-        self.obs_type = obs_type
-        self.render_mode = render_mode
-        self.frameskip = 0
         self._screen = None
         self._clock = None
 
@@ -66,7 +66,7 @@ class FireRed(gym.Env):
         self.gba.core.reset()
         self.gba.load_state(self.initial_state)
         self.gba.core.run_frame()
-        ob = self._get_observation()[::2,::2]
+        ob = self._get_observation()
         info = {}
         return ob, info
 
@@ -74,7 +74,7 @@ class FireRed(gym.Env):
         img = self._framebuffer.to_pil().convert("RGB")
         if self.obs_type == "grayscale":
             img = img.convert("L")
-        return np.array(img) #.transpose(1, 0, 2)
+        return np.array(img, dtype=np.uint8).transpose(1, 0, 2)
 
     def render(self):
         if self.render_mode is None:
@@ -121,7 +121,7 @@ class FireRed(gym.Env):
 
     def step(self, action):
         self.gba.run_action_on_emulator(action, self.frameskip)
-        ob = self._get_observation()[::2,::2]        
+        ob = self._get_observation()        
         info = {}
         return ob, 0, False, False, info
 
@@ -133,9 +133,9 @@ class FireRedV1(FireRed):
     def __init__(
         self,
         core: Emulator,
-        state_path=__file__.rstrip("environment.py") + "squirtle.state",
+        state_path: str = __file__.rstrip("environment.py") + "squirtle.state",
         obs_type: Literal["rgb", "grayscale"] = "rgb",
-        render_mode = "rgb_array",
+        render_mode: Literal["human", "rgb_array"] = "rgb_array",
         **kwargs,
     ):
         super().__init__(core, state_path, obs_type, render_mode)
@@ -146,6 +146,7 @@ class FireRedV1(FireRed):
         """Resets the game. Seeding is NOT supported"""
         self.gba.core.reset()
         self.gba.load_state(self.initial_state)
+        self.gba.core.run_frame()
         info = {}
 
         self.time = 0
@@ -165,7 +166,7 @@ class FireRedV1(FireRed):
         self.last_party_size = 1
         self.last_reward = None
 
-        ob = self._get_observation()[::2,::2]
+        ob = self._get_observation()
         return ob, info
 
     def step(self, action):
@@ -239,7 +240,7 @@ class FireRedV1(FireRed):
             reward -= self.last_reward
             self.last_reward = nxt_reward
 
-        ob = self._get_observation()[::2,::2]
+        ob = self._get_observation()
         info = {}
         done = self.time >= self.max_episode_steps
         if done:

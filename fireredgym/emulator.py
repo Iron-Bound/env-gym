@@ -30,6 +30,7 @@ class Emulator:
     def __init__(self, core: mgba.core.Core):
         self.core = core
         self._mem_cache = {}
+        # self.set_video_enabled(False)
 
     def open_state_file(self, path) -> bytes:
         # Load state file and cache it
@@ -49,6 +50,30 @@ class Emulator:
         vfile.write(state, len(state))
         vfile.seek(0, whence=0)
         self.core.load_state(vfile)
+
+    def set_video_enabled(self, video_enabled: bool = True) -> None:
+        """
+        Enable or disable video.
+
+        Apart from preventing the image from being rendered to the GUI, this will also toggle between
+        the 'real' and the dummy renderer inside libmgba. The latter will just ignore any command that
+        has to do with rendering, vastly speeding up the emulation.
+
+        This also means that taking screenshots is not possible while video is disabled.
+
+        :param video_enabled: Whether video output is enabled or not.
+        """
+        self._video_enabled = video_enabled
+
+        self.core._native.video.renderer.disableBG[0] = not video_enabled
+        self.core._native.video.renderer.disableBG[1] = not video_enabled
+        self.core._native.video.renderer.disableBG[2] = not video_enabled
+        self.core._native.video.renderer.disableBG[3] = not video_enabled
+        self.core._native.video.renderer.disableOBJ = not video_enabled
+
+        self.core._native.video.renderer.disableWIN[0] = not video_enabled
+        self.core._native.video.renderer.disableWIN[1] = not video_enabled
+        self.core._native.video.renderer.disableOBJWIN = not video_enabled
 
     def run_action_on_emulator(self, action, frame_skip=5):
         key = ACTIONS[action]
